@@ -7,7 +7,8 @@ const Auth = ({ mode, onClose, setUser }) => {
     email: '',
     password: '',
     displayName: '',
-    phone: ''
+    phone: '',
+    profilePicture: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -19,12 +20,43 @@ const Auth = ({ mode, onClose, setUser }) => {
     });
   };
 
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setError('Image size should be less than 5MB');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({
+          ...formData,
+          profilePicture: reader.result
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setError('');
 
     try {
       const result = await signInWithPopup(auth, googleProvider);
+
+      // Save Google profile picture to database
+      const { database } = await import('../firebase');
+      const { ref, push, update } = await import('firebase/database');
+
+      if (result.user.photoURL) {
+        await update(ref(database, `users/${result.user.uid}`), {
+          profilePicture: result.user.photoURL,
+          updatedAt: new Date().toISOString()
+        });
+      }
+
       setUser(result.user);
       onClose();
     } catch (error) {
@@ -63,6 +95,7 @@ const Auth = ({ mode, onClose, setUser }) => {
           email: formData.email,
           displayName: formData.displayName,
           phone: formData.phone,
+          profilePicture: formData.profilePicture || '',
           createdAt: new Date().toISOString()
         });
 
@@ -102,6 +135,60 @@ const Auth = ({ mode, onClose, setUser }) => {
                 onChange={handleChange}
                 required={mode === 'signup'}
               />
+            </div>
+          )}
+
+          {mode === 'signup' && (
+            <div className="form-group">
+              <label htmlFor="profilePicture">Profile Picture</label>
+              <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                {formData.profilePicture ? (
+                  <img
+                    src={formData.profilePicture}
+                    alt="Profile Preview"
+                    style={{
+                      width: '80px',
+                      height: '80px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      border: '3px solid #fbbf24',
+                      marginBottom: '0.5rem'
+                    }}
+                  />
+                ) : (
+                  <div style={{
+                    width: '80px',
+                    height: '80px',
+                    borderRadius: '50%',
+                    background: '#fbbf24',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 0.5rem auto',
+                    fontSize: '1.5rem',
+                    color: '#1e40af'
+                  }}>
+                    👤
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  style={{
+                    display: 'none',
+                    id: 'profilePictureUpload'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('profilePictureUpload').click()}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.9rem' }}
+                >
+                  {formData.profilePicture ? 'Change Photo' : 'Upload Photo'}
+                </button>
+              </div>
             </div>
           )}
 

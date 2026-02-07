@@ -65,15 +65,16 @@ const AIChatbot = () => {
 
   const generateAIResponse = (userMessage) => {
     const lowerMessage = userMessage.toLowerCase();
-    
+
     // Greeting patterns
     if (lowerMessage.match(/^(hi|hello|hey|good morning|good afternoon|good evening)/)) {
       return `👋 Welcome to Lords Driving School! I'm here to help you with any questions about our driving school services. What would you like to know?`;
     }
 
-    // Hours inquiry
-    if (lowerMessage.includes('hour') || lowerMessage.includes('time') || lowerMessage.includes('open') || lowerMessage.includes('close')) {
-      return `🕐 **Our Operating Hours:**\n\n${drivingSchoolData.hours}\n\nWe're open most of the week to serve you better!`;
+    // Hours and time inquiries
+    if (lowerMessage.includes('hour') || lowerMessage.includes('time') || lowerMessage.includes('open') || lowerMessage.includes('close') ||
+      lowerMessage.includes('operating') || lowerMessage.includes('when do you') || lowerMessage.includes('what time')) {
+      return `🕐 **Our Operating Hours:**\n\n${drivingSchoolData.hours}\n\n**When are we open?**\n• Monday - Friday: 8:00 AM - 6:00 PM\n• Saturday: 8:00 AM - 2:00 PM\n• Sunday: Closed\n\n**Best times to visit:**\n• Weekday mornings (less busy)\n• Saturday mornings (first half)\n\nWe look forward to helping you get your license!`;
     }
 
     // Pricing inquiries
@@ -302,16 +303,16 @@ const AIChatbot = () => {
                   maxWidth: '85%',
                   padding: '0.75rem',
                   borderRadius: '15px',
-                  background: msg.type === 'user' 
-                    ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' 
+                  background: msg.type === 'user'
+                    ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)'
                     : '#f8fafc',
                   color: msg.type === 'user' ? '#1e40af' : '#333',
                   border: msg.type === 'user' ? '2px solid #fbbf24' : '1px solid #e5e7eb',
                   wordBreak: 'break-word'
                 }}>
-                  <div style={{ 
-                    fontSize: '0.75rem', 
-                    marginBottom: '0.5rem', 
+                  <div style={{
+                    fontSize: '0.75rem',
+                    marginBottom: '0.5rem',
                     opacity: 0.7,
                     fontWeight: 'bold'
                   }}>
@@ -406,8 +407,8 @@ const AIChatbot = () => {
               onClick={handleSendMessage}
               disabled={!message.trim() || isTyping}
               style={{
-                background: message.trim() && !isTyping 
-                  ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' 
+                background: message.trim() && !isTyping
+                  ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)'
                   : '#e5e7eb',
                 border: 'none',
                 borderRadius: '50%',
@@ -421,7 +422,7 @@ const AIChatbot = () => {
               }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M2.01 21L23 12 2.01 3 2 10l10 11z"/>
+                <path d="M2.01 21L23 12 2.01 3 2 10l10 11z" />
               </svg>
             </button>
           </div>

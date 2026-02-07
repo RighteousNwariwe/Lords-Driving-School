@@ -15,7 +15,6 @@ import Auth from './components/Auth';
 import Booking from './components/Booking';
 import UserProfile from './components/UserProfile';
 import AdminDashboard from './components/AdminDashboard';
-import WhatsAppChat from './components/WhatsAppChat';
 import AIChatbot from './components/AIChatbot';
 
 function App() {
@@ -23,6 +22,7 @@ function App() {
   const [authMode, setAuthMode] = useState(null);
   const [showBooking, setShowBooking] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -46,13 +46,17 @@ function App() {
   window.showSignUpModal = () => setAuthMode('signup');
   window.showBookingModal = () => setShowBooking(true);
   window.showProfileModal = () => setShowProfile(true);
+  window.closeProfileModal = () => setShowProfile(false);
+  window.showAdminDashboard = () => setShowAdminDashboard(true);
 
   const closeAuthModal = () => setAuthMode(null);
   const closeBookingModal = () => setShowBooking(false);
   const closeProfileModal = () => setShowProfile(false);
+  const closeAdminDashboard = () => setShowAdminDashboard(false);
   const handleLogout = () => {
     setUser(null);
     setIsAdmin(false);
+    setShowAdminDashboard(false);
   };
 
   if (loading) {
@@ -71,19 +75,14 @@ function App() {
     );
   }
 
-  // Show admin dashboard if admin is logged in
-  if (isAdmin) {
-    return <AdminDashboard user={user} onLogout={handleLogout} />;
-  }
-
   // Show main website for all users
   return (
     <div className="App">
       <Header user={user} setUser={setUser} />
-      
+
       <main>
         <Hero />
-        
+
         {/* About Section */}
         <section id="about" className="section">
           <div className="container">
@@ -130,21 +129,20 @@ function App() {
       </main>
 
       <Footer />
-      <WhatsAppChat />
       <AIChatbot />
 
       {/* Auth Modal */}
       {authMode && (
-        <Auth 
-          mode={authMode} 
-          onClose={closeAuthModal} 
+        <Auth
+          mode={authMode}
+          onClose={closeAuthModal}
           setUser={setUser}
         />
       )}
 
       {/* Booking Modal */}
       {showBooking && (
-        <Booking 
+        <Booking
           user={user}
           onClose={closeBookingModal}
         />
@@ -152,9 +150,14 @@ function App() {
 
       {/* Profile Modal */}
       {showProfile && (
-        <UserProfile 
+        <UserProfile
           user={user}
         />
+      )}
+
+      {/* Admin Dashboard Modal */}
+      {showAdminDashboard && isAdmin && (
+        <AdminDashboard user={user} onLogout={handleLogout} onClose={closeAdminDashboard} />
       )}
     </div>
   );

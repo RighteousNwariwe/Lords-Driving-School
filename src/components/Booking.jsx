@@ -16,6 +16,7 @@ const Booking = ({ user, onClose }) => {
   });
   const [loading, setLoading] = useState(false);
   const [alert, setAlert] = useState(null);
+  const [dateError, setDateError] = useState('');
 
   const packages = {
     code8: [
@@ -47,12 +48,55 @@ const Booking = ({ user, onClose }) => {
       ...formData,
       [e.target.name]: e.target.value
     });
+
+    // Clear date error when user changes date
+    if (e.target.name === 'preferredDate') {
+      setDateError('');
+    }
+  };
+
+  const validateDate = (dateString) => {
+    const selectedDate = new Date(dateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of day for comparison
+
+    // Check if date is valid and not in the past
+    if (isNaN(selectedDate.getTime())) {
+      return 'Please select a valid date';
+    }
+
+    if (selectedDate < today) {
+      return 'Please select a future date. Bookings cannot be made for past dates.';
+    }
+
+    // Check if date is too far in the future (more than 3 months)
+    const maxDate = new Date();
+    maxDate.setMonth(maxDate.getMonth() + 3);
+
+    if (selectedDate > maxDate) {
+      return 'Please select a date within the next 3 months';
+    }
+
+    // Check if date is on Sunday (closed day)
+    if (selectedDate.getDay() === 0) {
+      return 'We are closed on Sundays. Please select a weekday or Saturday.';
+    }
+
+    return '';
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validate date first
+    const dateValidationError = validateDate(formData.preferredDate);
+    if (dateValidationError) {
+      setDateError(dateValidationError);
+      return;
+    }
+
     setLoading(true);
-    
+
     try {
       await push(ref(database, 'bookings'), {
         ...formData,
@@ -60,7 +104,7 @@ const Booking = ({ user, onClose }) => {
         timestamp: new Date().toISOString(),
         status: 'pending'
       });
-      
+
       setAlert({ type: 'success', message: 'Booking request submitted successfully! We will contact you within 24 hours.' });
       setFormData({
         name: user?.displayName || '',
@@ -73,6 +117,7 @@ const Booking = ({ user, onClose }) => {
         preferredTime: '',
         message: ''
       });
+      setDateError('');
     } catch (error) {
       setAlert({ type: 'error', message: 'Error submitting booking. Please try again.' });
     } finally {
@@ -91,6 +136,12 @@ const Booking = ({ user, onClose }) => {
         {alert && (
           <div className={`alert alert-${alert.type}`}>
             {alert.message}
+          </div>
+        )}
+
+        {dateError && (
+          <div className="alert alert-error">
+            {dateError}
           </div>
         )}
 
@@ -183,7 +234,7 @@ const Booking = ({ user, onClose }) => {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
-              <label htmlFor="preferredDate">Preferred Date</label>
+              <label htmlFor="preferredDate">Preferred Date *</label>
               <input
                 type="date"
                 id="preferredDate"
@@ -191,7 +242,17 @@ const Booking = ({ user, onClose }) => {
                 value={formData.preferredDate}
                 onChange={handleChange}
                 min={new Date().toISOString().split('T')[0]}
+                max={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                required
+                style={{
+                  borderColor: dateError ? '#ef4444' : '#ddd'
+                }}
               />
+              {dateError && (
+                <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem', display: 'block' }}>
+                  {dateError}
+                </small>
+              )}
             </div>
 
             <div className="form-group">

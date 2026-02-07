@@ -22,7 +22,7 @@ const UserProfile = ({ user }) => {
           setProfileData(prev => ({
             ...prev,
             phone: data.phone || '',
-            profilePicture: data.profilePicture || ''
+            profilePicture: data.profilePicture || user?.photoURL || ''
           }));
         }
       });
@@ -55,29 +55,46 @@ const UserProfile = ({ user }) => {
     }
   };
 
+  const handleRemovePicture = () => {
+    setProfileData({
+      ...profileData,
+      profilePicture: ''
+    });
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
 
     try {
+      // Validate required fields
+      if (!profileData.displayName.trim()) {
+        setMessage('Display name is required');
+        setLoading(false);
+        return;
+      }
+
+      // Update database
       await update(ref(database, `users/${user.uid}`), {
-        ...profileData,
+        displayName: profileData.displayName.trim(),
+        phone: profileData.phone.trim(),
+        profilePicture: profileData.profilePicture,
         updatedAt: new Date().toISOString()
       });
 
       // Update Firebase auth profile
-      if (user) {
+      if (user && profileData.displayName.trim() !== user.displayName) {
         await user.updateProfile({
-          displayName: profileData.displayName
+          displayName: profileData.displayName.trim()
         });
       }
 
       setMessage('Profile updated successfully!');
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
-      setMessage('Error updating profile. Please try again.');
       console.error('Profile update error:', error);
+      setMessage(`Error updating profile: ${error.message || 'Please try again.'}`);
     } finally {
       setLoading(false);
     }
@@ -104,17 +121,42 @@ const UserProfile = ({ user }) => {
             <label htmlFor="profilePicture">Profile Picture</label>
             <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
               {profileData.profilePicture ? (
-                <img
-                  src={profileData.profilePicture}
-                  alt="Profile"
-                  style={{
-                    width: '100px',
-                    height: '100px',
-                    borderRadius: '50%',
-                    objectFit: 'cover',
-                    border: '3px solid #fbbf24'
-                  }}
-                />
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <img
+                    src={profileData.profilePicture}
+                    alt="Profile"
+                    style={{
+                      width: '100px',
+                      height: '100px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      border: '3px solid #fbbf24'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemovePicture}
+                    style={{
+                      position: 'absolute',
+                      top: '-5px',
+                      right: '-5px',
+                      background: '#ef4444',
+                      color: 'white',
+                      border: '2px solid white',
+                      borderRadius: '50%',
+                      width: '25px',
+                      height: '25px',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
               ) : (
                 <div style={{
                   width: '100px',

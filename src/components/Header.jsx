@@ -37,6 +37,15 @@ const Header = ({ user, setUser }) => {
                 <span style={{ color: '#fbbf24', marginRight: '1rem' }}>
                   Welcome, {user.displayName || user.email}
                 </span>
+                {user.email === 'lordsdrivingschool@gmail.com' && (
+                  <button
+                    className="btn btn-warning"
+                    onClick={() => window.showAdminDashboard()}
+                    style={{ marginRight: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.9rem', background: '#dc2626', border: '#dc2626' }}
+                  >
+                    ⚙️ Admin Panel
+                  </button>
+                )}
                 <button
                   className="btn btn-secondary"
                   onClick={() => window.showProfileModal()}

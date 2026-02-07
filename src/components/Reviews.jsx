@@ -5,6 +5,7 @@ import { whatsappReviews } from '../data/whatsappReviews.js';
 
 const Reviews = ({ user }) => {
   const [reviews, setReviews] = useState([]);
+  const [approvedReviews, setApprovedReviews] = useState([]);
   const [newReview, setNewReview] = useState({ name: '', rating: 5, comment: '' });
   const [loading, setLoading] = useState(false);
   const [alert, setAlert] = useState(null);
@@ -13,6 +14,7 @@ const Reviews = ({ user }) => {
   const whatsappImages = whatsappReviews;
 
   useEffect(() => {
+    // Fetch pending reviews
     const reviewsRef = ref(database, 'reviews');
     onValue(reviewsRef, (snapshot) => {
       const data = snapshot.val();
@@ -22,6 +24,19 @@ const Reviews = ({ user }) => {
           ...data[key]
         }));
         setReviews(reviewsList);
+      }
+    });
+
+    // Fetch approved reviews for Hall of Fame
+    const approvedRef = ref(database, 'approvedReviews');
+    onValue(approvedRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const approvedList = Object.keys(data).map(key => ({
+          id: key,
+          ...data[key]
+        }));
+        setApprovedReviews(approvedList);
       }
     });
   }, []);
@@ -68,7 +83,7 @@ const Reviews = ({ user }) => {
   return (
     <section id="reviews" className="section" style={{ backgroundColor: '#f8fafc' }}>
       <div className="container">
-        <h2>Student Reviews & Testimonials</h2>
+        <h2>Lord's Drivers Hall of Fame</h2>
 
         {/* Customer Reviews */}
         <div style={{ marginBottom: '3rem' }}>
@@ -76,6 +91,7 @@ const Reviews = ({ user }) => {
             ⭐ Customer Testimonials
           </h3>
           <div className="reviews-grid">
+            {/* WhatsApp Reviews */}
             {whatsappImages.map((review) => (
               <div key={review.id} className="review-card" style={{
                 background: 'white',
@@ -126,7 +142,7 @@ const Reviews = ({ user }) => {
                     color: 'white',
                     fontSize: '1.5rem'
                   }}>
-                    �
+                    👤
                   </div>
                 </div>
 
@@ -147,11 +163,96 @@ const Reviews = ({ user }) => {
                 <p style={{ fontStyle: 'italic' }}>"{review.text}"</p>
                 <div style={{
                   marginTop: '1rem',
+                  padding: '0.5rem',
+                  background: '#fef2f2',
+                  borderRadius: '5px',
                   fontSize: '0.8rem',
-                  color: '#666',
-                  textAlign: 'right'
+                  color: '#dc2626',
+                  textAlign: 'center'
                 }}>
-                  ✓ Verified Customer • 📸 Original Photo
+                  📱 WhatsApp Review
+                </div>
+              </div>
+            ))}
+
+            {/* Approved Database Reviews */}
+            {approvedReviews.map((review) => (
+              <div key={review.id} className="review-card" style={{
+                background: 'white',
+                border: '2px solid #10b981',
+                position: 'relative'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '-10px',
+                  left: '20px',
+                  background: '#10b981',
+                  color: 'white',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold'
+                }}>
+                  Hall of Fame
+                </div>
+
+                {/* User Profile Picture */}
+                <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                  {review.userPhoto ? (
+                    <img
+                      src={review.userPhoto}
+                      alt={`Review from ${review.name}`}
+                      style={{
+                        width: '100%',
+                        maxHeight: '200px',
+                        objectFit: 'cover',
+                        borderRadius: '8px',
+                        border: '1px solid #ddd'
+                      }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: '50px',
+                      height: '50px',
+                      margin: '0 auto',
+                      background: '#10b981',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontSize: '1.5rem'
+                    }}>
+                      👤
+                    </div>
+                  )}
+                </div>
+
+                <div className="review-header">
+                  <div className="review-avatar" style={{ background: '#10b981' }}>
+                    {review.name ? review.name.charAt(0) : 'U'}
+                  </div>
+                  <div>
+                    <strong>{review.name || 'Anonymous'}</strong>
+                    <div style={{ color: '#666', fontSize: '0.9rem' }}>
+                      Verified Customer • {new Date(review.timestamp).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+                <div className="stars">
+                  {renderStars(review.rating)}
+                </div>
+                <p style={{ fontStyle: 'italic' }}>"{review.comment}"</p>
+                <div style={{
+                  marginTop: '1rem',
+                  padding: '0.5rem',
+                  background: '#f0fdf4',
+                  borderRadius: '5px',
+                  fontSize: '0.8rem',
+                  color: '#10b981',
+                  textAlign: 'center'
+                }}>
+                  ✅ Approved Review
                 </div>
               </div>
             ))}
@@ -169,7 +270,20 @@ const Reviews = ({ user }) => {
                 <div key={review.id} className="review-card">
                   <div className="review-header">
                     <div className="review-avatar">
-                      {review.name.charAt(0).toUpperCase()}
+                      {review.profilePicture ? (
+                        <img
+                          src={review.profilePicture}
+                          alt={review.name}
+                          style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '50%',
+                            objectFit: 'cover'
+                          }}
+                        />
+                      ) : (
+                        review.name.charAt(0).toUpperCase()
+                      )}
                     </div>
                     <div>
                       <strong>{review.name}</strong>
@@ -280,8 +394,156 @@ const Reviews = ({ user }) => {
             </div>
           </div>
         </div>
+
+        {/* Hall of Fame Upload Section */}
+        {user && (
+          <div style={{ maxWidth: '800px', margin: '3rem auto 0' }}>
+            <div style={{ background: 'white', padding: '2rem', borderRadius: '15px', boxShadow: '0 8px 25px rgba(0,0,0,0.1)' }}>
+              <h3 style={{ color: '#1e40af', marginBottom: '1.5rem', textAlign: 'center' }}>
+                🏆 Want to Join Our Hall of Fame?
+              </h3>
+              <p style={{ textAlign: 'center', marginBottom: '2rem', color: '#666' }}>
+                Upload a picture showing you acquiring your learner's license or passing your test.
+                Our admin team will review and approve it for the Hall of Fame!
+              </p>
+
+              <HallOfFameUpload user={user} />
+            </div>
+          </div>
+        )}
       </div>
     </section>
+  );
+};
+
+// Hall of Fame Upload Component
+const HallOfFameUpload = ({ user }) => {
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [description, setDescription] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [alert, setAlert] = useState(null);
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setAlert({ type: 'error', message: 'Image size should be less than 5MB' });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setAlert(null);
+
+    try {
+      const { database } = await import('../firebase');
+      const { ref, push } = await import('firebase/database');
+
+      await push(ref(database, 'hallOfFameSubmissions'), {
+        userId: user.uid,
+        userName: user.displayName || user.email,
+        userEmail: user.email,
+        userPhoto: user.photoURL,
+        image: selectedImage,
+        description: description,
+        status: 'pending', // pending, approved, rejected
+        submittedAt: new Date().toISOString()
+      });
+
+      setSelectedImage(null);
+      setDescription('');
+      setAlert({ type: 'success', message: 'Submitted for review! Our admin team will approve it shortly.' });
+    } catch (error) {
+      setAlert({ type: 'error', message: 'Error submitting. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {alert && (
+        <div className={`alert alert-${alert.type}`} style={{ marginBottom: '1rem' }}>
+          {alert.message}
+        </div>
+      )}
+
+      <div style={{ marginBottom: '1.5rem' }}>
+        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#1e40af' }}>
+          Upload Image (License/Success Photo)
+        </label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleImageSelect}
+          style={{
+            display: 'none',
+            id: 'hallOfFameImage'
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => document.getElementById('hallOfFameImage').click()}
+          className="btn btn-secondary"
+          style={{ marginBottom: '1rem', width: '100%' }}
+        >
+          {selectedImage ? 'Change Image' : 'Select Image'}
+        </button>
+
+        {selectedImage && (
+          <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+            <img
+              src={selectedImage}
+              alt="Hall of Fame submission"
+              style={{
+                maxWidth: '300px',
+                maxHeight: '200px',
+                borderRadius: '10px',
+                border: '3px solid #fbbf24'
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginBottom: '1.5rem' }}>
+        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#1e40af' }}>
+          Description
+        </label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Tell us about your achievement (e.g., passed my Code 8 test, first license, etc.)"
+          rows="3"
+          required
+          style={{
+            width: '100%',
+            padding: '0.75rem',
+            border: '1px solid #ddd',
+            borderRadius: '8px',
+            resize: 'vertical'
+          }}
+        />
+      </div>
+
+      <button
+        type="submit"
+        className="btn btn-primary"
+        disabled={loading || !selectedImage}
+        style={{ width: '100%' }}
+      >
+        {loading ? <span className="spinner"></span> : 'Submit for Hall of Fame'}
+      </button>
+    </form>
   );
 };
 
