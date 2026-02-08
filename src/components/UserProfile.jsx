@@ -2,31 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { database } from '../firebase';
 import { ref, update, onValue } from 'firebase/database';
 
-const UserProfile = ({ user }) => {
+const UserProfile = ({ user, onClose }) => {
   const [profileData, setProfileData] = useState({
     displayName: user?.displayName || '',
     email: user?.email || '',
-    phone: '',
-    profilePicture: ''
+    phone: user?.phone || '',
+    profilePicture: null
   });
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [alert, setAlert] = useState(null);
+  const fileInputRef = React.useRef(null);
 
   useEffect(() => {
-    // Load user profile data from database
-    if (user) {
-      const userRef = ref(database, `users/${user.uid}`);
-      onValue(userRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          setProfileData(prev => ({
-            ...prev,
-            phone: data.phone || '',
-            profilePicture: data.profilePicture || user?.photoURL || ''
-          }));
-        }
-      });
-    }
+    // Load user's profile picture from database
+    const loadProfilePicture = async () => {
+      try {
+        onValue(ref(database, `users/${user.uid}`), (snapshot) => {
+          const data = snapshot.val();
+          if (data && data.profilePicture) {
+            setProfileData(prev => ({
+              ...prev,
+              profilePicture: data.profilePicture
+            }));
+          }
+        });
+      } catch (error) {
+        console.error('Error loading profile picture:', error);
+      }
+    };
+
+    loadProfilePicture();
   }, [user]);
 
   const handleChange = (e) => {
@@ -38,39 +43,51 @@ const UserProfile = ({ user }) => {
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
-    if (file) {
+    if (file && file.type.startsWith('image/')) {
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        setMessage('Image size should be less than 5MB');
+        setAlert({ type: 'error', message: 'Image size should be less than 5MB' });
         return;
       }
 
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfileData({
-          ...profileData,
-          profilePicture: reader.result
-        });
+      reader.onload = (event) => {
+        setProfileData(prev => ({ ...prev, profilePicture: event.target.result }));
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleRemovePicture = () => {
-    setProfileData({
-      ...profileData,
-      profilePicture: ''
-    });
+  const handleUploadClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleRemovePicture = async () => {
+    setProfileData(prev => ({ ...prev, profilePicture: null }));
+
+    // Remove profile picture from database
+    try {
+      await update(ref(database, `users/${user.uid}`), {
+        profilePicture: null,
+        lastUpdated: new Date().toISOString()
+      });
+
+      setAlert({ type: 'success', message: 'Profile picture removed successfully!' });
+    } catch (error) {
+      setAlert({ type: 'error', message: 'Error removing profile picture. Please try again.' });
+    }
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setMessage('');
+    setAlert(null);
 
     try {
       // Validate required fields
       if (!profileData.displayName.trim()) {
-        setMessage('Display name is required');
+        setAlert({ type: 'error', message: 'Display name is required' });
         setLoading(false);
         return;
       }
@@ -90,11 +107,11 @@ const UserProfile = ({ user }) => {
         });
       }
 
-      setMessage('Profile updated successfully!');
-      setTimeout(() => setMessage(''), 3000);
+      setAlert('Profile updated successfully!');
+      setTimeout(() => setAlert(''), 3000);
     } catch (error) {
       console.error('Profile update error:', error);
-      setMessage(`Error updating profile: ${error.message || 'Please try again.'}`);
+      setAlert(`Error updating profile: ${error.message || 'Please try again.'}`);
     } finally {
       setLoading(false);
     }
@@ -110,27 +127,29 @@ const UserProfile = ({ user }) => {
           </button>
         </div>
 
-        {message && (
-          <div className={`alert ${message.includes('success') ? 'alert-success' : 'alert-error'}`}>
-            {message}
+        {alert && (
+          <div className={`alert ${alert.includes('success') ? 'alert-success' : 'alert-error'}`}>
+            {alert}
           </div>
         )}
 
         <form onSubmit={handleSave}>
           <div className="form-group">
-            <label htmlFor="profilePicture">Profile Picture</label>
-            <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+            <label htmlFor="profilePicture">Profile Pictures</label>
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ color: '#1e40af', marginBottom: '1rem' }}>Profile Picture</h3>
+
               {profileData.profilePicture ? (
-                <div style={{ position: 'relative', display: 'inline-block' }}>
+                <div style={{ position: 'relative', display: 'inline-block', marginBottom: '1rem' }}>
                   <img
                     src={profileData.profilePicture}
                     alt="Profile"
                     style={{
-                      width: '100px',
-                      height: '100px',
+                      width: '120px',
+                      height: '120px',
                       borderRadius: '50%',
                       objectFit: 'cover',
-                      border: '3px solid #fbbf24'
+                      border: '3px solid #dc2626'
                     }}
                   />
                   <button
@@ -138,20 +157,15 @@ const UserProfile = ({ user }) => {
                     onClick={handleRemovePicture}
                     style={{
                       position: 'absolute',
-                      top: '-5px',
-                      right: '-5px',
+                      top: '5px',
+                      right: '5px',
                       background: '#ef4444',
                       color: 'white',
-                      border: '2px solid white',
+                      border: 'none',
                       borderRadius: '50%',
-                      width: '25px',
-                      height: '25px',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 'bold'
+                      width: '24px',
+                      height: '24px',
+                      cursor: 'pointer'
                     }}
                   >
                     ×
@@ -159,24 +173,25 @@ const UserProfile = ({ user }) => {
                 </div>
               ) : (
                 <div style={{
-                  width: '100px',
-                  height: '100px',
+                  width: '120px',
+                  height: '120px',
                   borderRadius: '50%',
-                  background: '#fbbf24',
+                  background: '#f3f4f6',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  margin: '0 auto',
-                  fontSize: '2rem',
-                  color: '#1e40af'
+                  margin: '0 auto 1rem',
+                  border: '3px solid #dc2626'
                 }}>
-                  👤
+                  <span style={{ color: '#666', fontSize: '2rem' }}>👤</span>
                 </div>
               )}
+
               <input
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
+                ref={fileInputRef}
                 style={{
                   display: 'none',
                   id: 'imageUpload'
@@ -184,11 +199,33 @@ const UserProfile = ({ user }) => {
               />
               <button
                 type="button"
-                onClick={() => document.getElementById('imageUpload').click()}
-                className="btn btn-secondary"
-                style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}
+                onClick={handleUploadClick}
+                className="btn btn-primary"
+                style={{
+                  marginTop: '0.5rem',
+                  fontSize: '0.9rem',
+                  fontWeight: 'bold',
+                  background: '#8b5cf6',
+                  border: '2px solid #8b5cf6',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  padding: '0.5rem 1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = '#7c3aed';
+                  e.target.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = '#8b5cf6';
+                  e.target.style.transform = 'translateY(0)';
+                }}
               >
-                {profileData.profilePicture ? 'Change Photo' : 'Upload Photo'}
+                📸 {profileData.profilePicture ? 'Change Photo' : 'Upload Photo'}
               </button>
             </div>
           </div>

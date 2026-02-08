@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { database } from '../firebase';
-import { ref, onValue } from 'firebase/database';
+import { ref, onValue, push } from 'firebase/database';
+import { whatsappReviews } from '../data/whatsappReviews.js';
 
 const LordsDrivers = () => {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [admin, setAdmin] = useState(false);
 
   useEffect(() => {
     const driversRef = ref(database, 'lordsDrivers');
@@ -37,24 +39,97 @@ const LordsDrivers = () => {
           🏆 Lord's Drivers Hall of Fame
         </h2>
 
-        {drivers.length === 0 ? (
+        {/* Hall of Fame Testimonials */}
+        <div style={{ marginBottom: '3rem' }}>
+          <h3 style={{ textAlign: 'center', color: '#1e3a8a', marginBottom: '2rem' }}>
+
+          </h3>
           <div style={{
-            background: 'white',
-            padding: '3rem',
-            borderRadius: '15px',
-            textAlign: 'center',
-            boxShadow: '0 8px 25px rgba(0,0,0,0.1)'
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+            gap: '2rem'
           }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚗</div>
-            <h3 style={{ color: '#1e40af', marginBottom: '1rem' }}>
-              Coming Soon!
-            </h3>
-            <p style={{ color: '#666', fontSize: '1.1rem' }}>
-              Our successful drivers will be showcased here soon. 
-              Complete your training with Lords Driving School to be featured!
-            </p>
+            {/* WhatsApp Reviews */}
+            {whatsappReviews.map((review) => (
+              <div key={review.id} style={{
+                background: 'white',
+                borderRadius: '15px',
+                padding: '1.5rem',
+                boxShadow: '0 8px 25px rgba(0,0,0,0.1)',
+                textAlign: 'center',
+                border: '2px solid #dc2626',
+                position: 'relative'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '-10px',
+                  left: '20px',
+                  background: '#dc2626',
+                  color: 'white',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold'
+                }}>
+                  Hall of Fame
+                </div>
+
+                {/* Customer Image - Rectangular */}
+                <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                  <img
+                    src={review.image}
+                    alt={`Hall of Fame member ${review.author}`}
+                    style={{
+                      width: '100%',
+                      height: '200px',
+                      objectFit: 'cover',
+                      borderRadius: '8px',
+                      border: '2px solid #fbbf24'
+                    }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                  <div style={{
+                    display: 'none',
+                    width: '100%',
+                    height: '200px',
+                    borderRadius: '8px',
+                    background: '#fbbf24',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: '2rem'
+                  }}>
+                    👤
+                  </div>
+                </div>
+
+                <h4 style={{ color: '#1e40af', marginBottom: '0.5rem' }}>
+                  {review.author}
+                </h4>
+                <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '1rem', fontStyle: 'italic' }}>
+                  "{review.text}"
+                </p>
+                <div style={{
+                  background: '#10b981',
+                  color: 'white',
+                  padding: '0.25rem 0.75rem',
+                  borderRadius: '20px',
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold',
+                  display: 'inline-block'
+                }}>
+                  🏆 Hall of Fame
+                </div>
+              </div>
+            ))}
           </div>
-        ) : (
+        </div>
+
+        {/* Existing Drivers Display */}
+        {drivers.length > 0 && (
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
@@ -69,16 +144,16 @@ const LordsDrivers = () => {
                 transition: 'all 0.3s ease',
                 border: '3px solid transparent'
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-10px)';
-                e.currentTarget.style.borderColor = '#fbbf24';
-                e.currentTarget.style.boxShadow = '0 25px 50px rgba(251, 191, 36, 0.3)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.borderColor = 'transparent';
-                e.currentTarget.style.boxShadow = '0 15px 35px rgba(0,0,0,0.1)';
-              }}>
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-10px)';
+                  e.currentTarget.style.borderColor = '#fbbf24';
+                  e.currentTarget.style.boxShadow = '0 25px 50px rgba(251, 191, 36, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.borderColor = 'transparent';
+                  e.currentTarget.style.boxShadow = '0 15px 35px rgba(0,0,0,0.1)';
+                }}>
                 <div style={{ position: 'relative' }}>
                   <img
                     src={driver.image}
@@ -107,7 +182,7 @@ const LordsDrivers = () => {
                     {driver.licenseCode}
                   </div>
                 </div>
-                
+
                 <div style={{ padding: '1.5rem' }}>
                   <h3 style={{
                     color: '#1e40af',
@@ -117,7 +192,7 @@ const LordsDrivers = () => {
                   }}>
                     🏆 {driver.name}
                   </h3>
-                  
+
                   <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -134,7 +209,7 @@ const LordsDrivers = () => {
                       📅 {new Date(driver.date).toLocaleDateString()}
                     </span>
                   </div>
-                  
+
                   <blockquote style={{
                     margin: '0',
                     padding: '1rem',
@@ -147,7 +222,7 @@ const LordsDrivers = () => {
                   }}>
                     "{driver.testimonial}"
                   </blockquote>
-                  
+
                   <div style={{
                     textAlign: 'center',
                     marginTop: '1rem',
@@ -166,30 +241,195 @@ const LordsDrivers = () => {
           </div>
         )}
 
-        <div style={{
-          textAlign: 'center',
-          marginTop: '3rem',
-          padding: '2rem',
-          background: 'white',
-          borderRadius: '15px',
-          boxShadow: '0 8px 25px rgba(0,0,0,0.1)'
-        }}>
-          <h3 style={{ color: '#1e40af', marginBottom: '1rem' }}>
-            🚗 Want to Join Our Hall of Fame?
-          </h3>
-          <p style={{ color: '#666', fontSize: '1.1rem', marginBottom: '1.5rem' }}>
-            Complete your driving training with Lords Driving School and pass your license test 
-            to be featured as one of our successful Lord's Drivers!
-          </p>
-          <button
-            onClick={() => window.scrollTo({ top: document.getElementById('contact').offsetTop, behavior: 'smooth' })}
-            className="btn btn-primary"
-          >
-            Start Your Journey Today
-          </button>
+        {/* Hall of Fame Upload Section */}
+        <div style={{ maxWidth: '800px', margin: '3rem auto 0' }}>
+          <div style={{ background: 'white', padding: '2rem', borderRadius: '15px', boxShadow: '0 8px 25px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ color: '#1e40af', marginBottom: '1.5rem', textAlign: 'center' }}>
+              🏆 Want to Join Our Hall of Fame?
+            </h3>
+            <p style={{ textAlign: 'center', marginBottom: '2rem', color: '#666' }}>
+              Upload a picture showing you acquiring your learner's license or passing your test.
+              Our admin team will review and approve it for Hall of Fame!
+            </p>
+
+            <HallOfFameUpload />
+          </div>
         </div>
       </div>
     </section>
+  );
+};
+
+// Hall of Fame Upload Component
+const HallOfFameUpload = () => {
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [description, setDescription] = useState('');
+  const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [alert, setAlert] = useState(null);
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setAlert({ type: 'error', message: 'Image size should be less than 5MB' });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setAlert(null);
+
+    try {
+      const { database } = await import('../firebase');
+      const { ref, push } = await import('firebase/database');
+
+      await push(ref(database, 'hallOfFameSubmissions'), {
+        name: name,
+        image: selectedImage,
+        description: description,
+        status: 'pending',
+        submittedAt: new Date().toISOString()
+      });
+
+      setSelectedImage(null);
+      setDescription('');
+      setName('');
+      setAlert({ type: 'success', message: 'Submitted for review! Our admin team will approve it shortly.' });
+    } catch (error) {
+      setAlert({ type: 'error', message: 'Error submitting. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {alert && (
+        <div className={`alert alert-${alert.type}`} style={{ marginBottom: '1rem' }}>
+          {alert.message}
+        </div>
+      )}
+
+      <div style={{ marginBottom: '1.5rem' }}>
+        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#1e40af' }}>
+          Your Name *
+        </label>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Enter your full name"
+          required
+          style={{
+            width: '100%',
+            padding: '0.75rem',
+            border: '1px solid #ddd',
+            borderRadius: '8px',
+            fontSize: '1rem'
+          }}
+        />
+      </div>
+
+      <div style={{ marginBottom: '1.5rem' }}>
+        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#1e40af' }}>
+          Upload Image (License/Success Photo) *
+        </label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleImageSelect}
+          style={{
+            display: 'none',
+            id: 'hallOfFameImage'
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => document.getElementById('hallOfFameImage').click()}
+          className="btn btn-secondary"
+          style={{
+            marginBottom: '1rem',
+            width: '100%',
+            backgroundColor: '#dc2626',
+            color: '#ffffff',
+            border: '2px solid #dc2626',
+            padding: '12px 24px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease'
+          }}
+        >
+          {selectedImage ? 'Change Image' : 'Select Image'}
+        </button>
+
+        {selectedImage && (
+          <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+            <img
+              src={selectedImage}
+              alt="Hall of Fame submission"
+              style={{
+                maxWidth: '300px',
+                maxHeight: '200px',
+                borderRadius: '10px',
+                border: '3px solid #fbbf24'
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginBottom: '1.5rem' }}>
+        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#1e40af' }}>
+          Description *
+        </label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Tell us about your achievement (e.g., passed my Code 8 test, first license, etc.)"
+          rows="3"
+          required
+          style={{
+            width: '100%',
+            padding: '0.75rem',
+            border: '1px solid #ddd',
+            borderRadius: '8px',
+            resize: 'vertical'
+          }}
+        />
+      </div>
+
+      <button
+        type="submit"
+        className="btn btn-primary"
+        disabled={loading || !selectedImage || !name || !description}
+        style={{
+          width: '100%',
+          backgroundColor: '#dc2626',
+          color: '#ffffff',
+          border: '2px solid #dc2626',
+          padding: '12px 24px',
+          fontSize: '16px',
+          fontWeight: 'bold',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          transition: 'all 0.3s ease'
+        }}
+      >
+        {loading ? <span className="spinner"></span> : 'Submit for Hall of Fame'}
+      </button>
+    </form>
   );
 };
 

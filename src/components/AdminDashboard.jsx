@@ -1,219 +1,421 @@
 import React, { useState, useEffect } from 'react';
-import { database } from '../firebase';
-import { ref, onValue, push, update, remove } from 'firebase/database';
+import { database, auth } from '../firebase';
+import { ref, onValue, remove, update, push, get } from 'firebase/database';
+import { signOut } from 'firebase/auth';
 
-const AdminDashboard = ({ user, onLogout, onClose }) => {
-  const [pendingReviews, setPendingReviews] = useState([]);
-  const [approvedReviews, setApprovedReviews] = useState([]);
-  const [hallOfFameSubmissions, setHallOfFameSubmissions] = useState([]);
+const AdminDashboard = () => {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [stats, setStats] = useState({
+    totalReviews: 0,
+    totalBookings: 0,
+    totalHallOfFame: 0,
+    pendingReviews: 0,
+    pendingBookings: 0,
+    pendingHallOfFame: 0
+  });
+  const [reviews, setReviews] = useState([]);
   const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('reviews');
+  const [hallOfFame, setHallOfFame] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Fetch pending reviews
-    const pendingRef = ref(database, 'reviews');
-    onValue(pendingRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const pending = Object.keys(data)
-          .map(key => ({ id: key, ...data[key] }))
-          .filter(review => !review.approved);
-        setPendingReviews(pending);
-      }
-    });
+    const fetchData = async () => {
+      try {
+        setError(null);
 
-    // Fetch approved reviews
-    const approvedRef = ref(database, 'approvedReviews');
-    onValue(approvedRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const approved = Object.keys(data).map(key => ({ id: key, ...data[key] }));
-        setApprovedReviews(approved);
-      }
-    });
-
-    // Fetch Hall of Fame submissions
-    const hallOfFameRef = ref(database, 'hallOfFameSubmissions');
-    onValue(hallOfFameRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const submissions = Object.keys(data).map(key => ({ id: key, ...data[key] }));
-        setHallOfFameSubmissions(submissions);
-      }
-    });
-
-    // Fetch bookings
-    const bookingsRef = ref(database, 'bookings');
-    onValue(bookingsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const bookingsList = Object.keys(data).map(key => ({ id: key, ...data[key] }));
-        setBookings(bookingsList);
-      }
-    });
-  }, []);
-
-  const handleApproveReview = async (reviewId) => {
-    try {
-      const review = pendingReviews.find(r => r.id === reviewId);
-      if (review) {
-        // Add to approved reviews
-        await push(ref(database, 'approvedReviews'), {
-          ...review,
-          approved: true,
-          approvedAt: new Date().toISOString()
+        // Reviews
+        const reviewsRef = ref(database, 'reviews');
+        const reviewsUnsubscribe = onValue(reviewsRef, (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            const reviewsList = Object.keys(data).map(key => ({
+              id: key,
+              ...data[key]
+            }));
+            setReviews(reviewsList);
+          } else {
+            setReviews([]);
+          }
+        }, (error) => {
+          console.error('Error fetching reviews:', error);
         });
 
-        // Remove from pending
-        await update(ref(database, `reviews/${reviewId}`), { approved: true });
-      }
-    } catch (error) {
-      console.error('Error approving review:', error);
-    }
-  };
+        // Bookings
+        const bookingsRef = ref(database, 'bookings');
+        const bookingsUnsubscribe = onValue(bookingsRef, (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            const bookingsList = Object.keys(data).map(key => ({
+              id: key,
+              ...data[key]
+            }));
+            setBookings(bookingsList);
+          } else {
+            setBookings([]);
+          }
+        }, (error) => {
+          console.error('Error fetching bookings:', error);
+        });
 
-  const handleRejectReview = async (reviewId) => {
-    try {
-      await remove(ref(database, `reviews/${reviewId}`));
-    } catch (error) {
-      console.error('Error rejecting review:', error);
-    }
-  };
+        // Hall of Fame
+        const hofRef = ref(database, 'hallOfFameSubmissions');
+        const hofUnsubscribe = onValue(hofRef, (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            const hofList = Object.keys(data).map(key => ({
+              id: key,
+              ...data[key]
+            }));
+            setHallOfFame(hofList);
+          } else {
+            setHallOfFame([]);
+          }
+        }, (error) => {
+          console.error('Error fetching Hall of Fame:', error);
+        });
+
+        setLoading(false);
+
+        return () => {
+          reviewsUnsubscribe();
+          bookingsUnsubscribe();
+          hofUnsubscribe();
+        };
+      } catch (error) {
+        console.error('Error setting up data fetching:', error);
+        setError('Failed to connect to database. Please check your connection.');
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    // Update stats when data changes
+    setStats({
+      totalReviews: reviews.length,
+      totalBookings: bookings.length,
+      totalHallOfFame: hallOfFame.length,
+      pendingReviews: reviews.filter(r => !r.approved).length,
+      pendingBookings: bookings.filter(b => b.status === 'pending').length,
+      pendingHallOfFame: hallOfFame.filter(h => h.status === 'pending').length
+    });
+  }, [reviews, bookings, hallOfFame]);
 
   const handleDeleteReview = async (reviewId) => {
-    try {
-      await remove(ref(database, `approvedReviews/${reviewId}`));
-    } catch (error) {
-      console.error('Error deleting review:', error);
+    if (window.confirm('Are you sure you want to delete this review?')) {
+      await remove(ref(database, `reviews/${reviewId}`));
     }
   };
 
-  const sendBookingNotification = async (booking) => {
-    try {
-      // Send email notification to admin
-      const emailContent = `
-        New Booking Received!
-        
-        Student: ${booking.studentName}
-        Email: ${booking.email}
-        Phone: ${booking.phone}
-        License Code: ${booking.licenseCode}
-        Date: ${new Date(booking.date).toLocaleDateString()}
-        Time: ${booking.time}
-        Branch: ${booking.branch}
-        Message: ${booking.message}
-        
-        Please contact the student to confirm the booking.
-      `;
-
-      // For now, we'll log the notification. In production, you'd integrate with an email service
-      console.log('Booking notification sent:', emailContent);
-
-      // You could integrate with services like:
-      // - EmailJS
-      // - SendGrid
-      // - Firebase Cloud Functions with SendGrid
-      // - AWS SES
-
-    } catch (error) {
-      console.error('Error sending booking notification:', error);
+  const handleDeleteBooking = async (bookingId) => {
+    if (window.confirm('Are you sure you want to delete this booking? This action cannot be undone.')) {
+      await remove(ref(database, `bookings/${bookingId}`));
     }
   };
 
-  return (
-    <div className="modal">
-      <div className="modal-content" style={{ maxWidth: '1200px', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div className="modal-header">
-          <h1>🚗 Lords Driving School Admin</h1>
-          <button className="close-btn" onClick={onClose}>
-            &times;
+  const handleDeleteHallOfFame = async (hofId) => {
+    if (window.confirm('Are you sure you want to delete this Hall of Fame entry?')) {
+      await remove(ref(database, `hallOfFameSubmissions/${hofId}`));
+    }
+  };
+
+  const handleUpdateHallOfFame = async (hofId, field, value) => {
+    await update(ref(database, `hallOfFameSubmissions/${hofId}`), {
+      [field]: value
+    });
+  };
+
+  const handleApproveReview = async (reviewId) => {
+    await update(ref(database, `reviews/${reviewId}`), {
+      approved: true
+    });
+  };
+
+  const handleUpdateBooking = async (bookingId, field, value) => {
+    await update(ref(database, `bookings/${bookingId}`), {
+      [field]: value
+    });
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return dateString;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        backgroundColor: '#f8fafc'
+      }}>
+        <div>
+          <div className="spinner"></div>
+          <p style={{ marginTop: '1rem' }}>Loading Admin Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        backgroundColor: '#f8fafc',
+        flexDirection: 'column'
+      }}>
+        <div style={{
+          background: 'white',
+          padding: '2rem',
+          borderRadius: '12px',
+          boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+          textAlign: 'center',
+          maxWidth: '500px'
+        }}>
+          <h3 style={{ color: '#dc2626', marginBottom: '1rem' }}>⚠️ Error</h3>
+          <p style={{ color: '#666', marginBottom: '1.5rem' }}>{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              background: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              padding: '0.75rem 1.5rem',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: 'bold'
+            }}
+          >
+            🔄 Reload
           </button>
         </div>
+      </div>
+    );
+  }
 
-        <div className="container" style={{ padding: '2rem 0' }}>
-          {/* Tab Navigation */}
-          <div style={{ display: 'flex', marginBottom: '2rem', borderBottom: '2px solid #e5e7eb', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setActiveTab('reviews')}
-              style={{
-                padding: '1rem 2rem',
-                background: activeTab === 'reviews' ? '#dc2626' : 'transparent',
-                color: activeTab === 'reviews' ? 'white' : '#1e40af',
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                marginRight: '1rem'
-              }}
-            >
-              📝 Reviews Management
-            </button>
-            <button
-              onClick={() => setActiveTab('hallOfFame')}
-              style={{
-                padding: '1rem 2rem',
-                background: activeTab === 'hallOfFame' ? '#dc2626' : 'transparent',
-                color: activeTab === 'hallOfFame' ? 'white' : '#1e40af',
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                marginRight: '1rem'
-              }}
-            >
-              🏆 Hall of Fame
-            </button>
-            <button
-              onClick={() => setActiveTab('bookings')}
-              style={{
-                padding: '1rem 2rem',
-                background: activeTab === 'bookings' ? '#dc2626' : 'transparent',
-                color: activeTab === 'bookings' ? 'white' : '#1e40af',
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              📅 Bookings Management
-            </button>
+  return (
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: '#f8fafc',
+      fontFamily: 'Arial, sans-serif'
+    }}>
+      {/* Header */}
+      <header style={{
+        background: '#1e40af',
+        color: 'white',
+        padding: '1rem 2rem',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+      }}>
+        <h1 style={{ margin: 0, fontSize: '1.5rem' }}>
+          🛠️ Lords Driving School - Admin Dashboard
+        </h1>
+        <button
+          onClick={handleLogout}
+          style={{
+            background: '#dc2626',
+            color: 'white',
+            border: 'none',
+            padding: '0.75rem 1.5rem',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: 'bold',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseOver={(e) => {
+            e.target.style.background = '#b91c1c';
+          }}
+          onMouseOut={(e) => {
+            e.target.style.background = '#dc2626';
+          }}
+        >
+          🚪 Logout
+        </button>
+      </header>
+
+      <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+        {/* Stats Cards */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gap: '1.5rem',
+          marginBottom: '2rem'
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '1.5rem',
+            borderRadius: '12px',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+            borderLeft: '4px solid #3b82f6'
+          }}>
+            <h3 style={{ color: '#1e40af', margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>📊 Total Reviews</h3>
+            <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6', margin: 0 }}>
+              {stats.totalReviews}
+            </p>
+            <p style={{ color: '#666', fontSize: '0.8rem', margin: '0.5rem 0 0 0' }}>
+              {stats.pendingReviews} pending approval
+            </p>
           </div>
 
-          {/* Reviews Management Tab */}
-          {activeTab === 'reviews' && (
-            <div>
-              <h2 style={{ color: '#1e40af', marginBottom: '2rem' }}>
-                Pending Reviews ({pendingReviews.length})
-              </h2>
+          <div style={{
+            background: 'white',
+            padding: '1.5rem',
+            borderRadius: '12px',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+            borderLeft: '4px solid #10b981'
+          }}>
+            <h3 style={{ color: '#1e40af', margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>📅 Total Bookings</h3>
+            <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#10b981', margin: 0 }}>
+              {stats.totalBookings}
+            </p>
+            <p style={{ color: '#666', fontSize: '0.8rem', margin: '0.5rem 0 0 0' }}>
+              {stats.pendingBookings} pending
+            </p>
+          </div>
 
-              {pendingReviews.length === 0 ? (
-                <div style={{
-                  background: 'white',
-                  padding: '2rem',
-                  borderRadius: '10px',
-                  textAlign: 'center',
-                  color: '#666'
-                }}>
-                  No pending reviews to review.
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gap: '1.5rem' }}>
-                  {pendingReviews.map(review => (
-                    <div key={review.id} style={{
-                      background: 'white',
-                      padding: '1.5rem',
-                      borderRadius: '10px',
-                      border: '2px solid #fbbf24',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
-                        <div>
-                          <h4 style={{ color: '#1e40af', margin: '0 0 0.5rem 0' }}>
-                            {review.name}
-                          </h4>
-                          <p style={{ margin: '0', color: '#666', fontSize: '0.9rem' }}>
-                            {review.email} • {new Date(review.timestamp).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{
+            background: 'white',
+            padding: '1.5rem',
+            borderRadius: '12px',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+            borderLeft: '4px solid #f59e0b'
+          }}>
+            <h3 style={{ color: '#1e40af', margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>🏆 Hall of Fame</h3>
+            <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#f59e0b', margin: 0 }}>
+              {stats.totalHallOfFame}
+            </p>
+            <p style={{ color: '#666', fontSize: '0.8rem', margin: '0.5rem 0 0 0' }}>
+              {stats.pendingHallOfFame} pending approval
+            </p>
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <div style={{
+          display: 'flex',
+          gap: '0.5rem',
+          marginBottom: '2rem',
+          borderBottom: '2px solid #e5e7eb',
+          paddingBottom: '1rem'
+        }}>
+          {[
+            { id: 'dashboard', label: '📊 Dashboard', color: '#3b82f6' },
+            { id: 'reviews', label: '⭐ Reviews', color: '#10b981' },
+            { id: 'bookings', label: '📅 Bookings', color: '#f59e0b' },
+            { id: 'hallOfFame', label: '🏆 Hall of Fame', color: '#dc2626' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: activeTab === tab.id ? tab.color : '#f3f4f6',
+                color: activeTab === tab.id ? 'white' : '#1e40af',
+                border: `2px solid ${tab.color}`,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: 'bold',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Dashboard Tab */}
+        {activeTab === 'dashboard' && (
+          <div style={{
+            background: 'white',
+            padding: '2rem',
+            borderRadius: '12px',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+          }}>
+            <h2 style={{ color: '#1e40af', marginBottom: '1.5rem' }}>📊 Dashboard Overview</h2>
+            <p style={{ color: '#666', lineHeight: '1.6' }}>
+              Welcome to the Lords Driving School Admin Dashboard. Here you can manage reviews, bookings, and Hall of Fame submissions.
+              Use the tabs above to navigate between different management sections.
+            </p>
+          </div>
+        )}
+
+        {/* Reviews Tab */}
+        {activeTab === 'reviews' && (
+          <div style={{
+            background: 'white',
+            padding: '2rem',
+            borderRadius: '12px',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+          }}>
+            <h2 style={{ color: '#1e40af', marginBottom: '1.5rem' }}>⭐ Reviews Management</h2>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                marginTop: '1rem'
+              }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e5e7eb' }}>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Name</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Email</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Rating</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Date</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Status</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reviews.map(review => (
+                    <tr key={review.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                      <td style={{ padding: '1rem' }}>{review.name || 'Anonymous'}</td>
+                      <td style={{ padding: '1rem' }}>{review.userEmail || review.email}</td>
+                      <td style={{ padding: '1rem' }}>
+                        {'⭐'.repeat(review.rating || 5)}
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        {formatDate(review.timestamp)}
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <span style={{
+                          padding: '0.25rem 0.75rem',
+                          borderRadius: '20px',
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold',
+                          background: review.approved ? '#10b981' : '#f59e0b',
+                          color: 'white'
+                        }}>
+                          {review.approved ? 'Approved' : 'Pending'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        {!review.approved && (
                           <button
                             onClick={() => handleApproveReview(review.id)}
                             style={{
@@ -222,376 +424,186 @@ const AdminDashboard = ({ user, onLogout, onClose }) => {
                               border: 'none',
                               padding: '0.5rem 1rem',
                               borderRadius: '5px',
-                              cursor: 'pointer'
+                              cursor: 'pointer',
+                              marginRight: '0.5rem'
                             }}
                           >
-                            ✓ Approve
+                            Approve
                           </button>
-                          <button
-                            onClick={() => handleRejectReview(review.id)}
-                            style={{
-                              background: '#ef4444',
-                              color: 'white',
-                              border: 'none',
-                              padding: '0.5rem 1rem',
-                              borderRadius: '5px',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            ✗ Reject
-                          </button>
-                        </div>
-                      </div>
-                      <div style={{ marginBottom: '0.5rem' }}>
-                        {'⭐'.repeat(review.rating)}
-                      </div>
-                      <p style={{ fontStyle: 'italic', color: '#333' }}>
-                        "{review.comment}"
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <h3 style={{ color: '#1e40af', marginTop: '3rem', marginBottom: '1rem' }}>
-                Approved Reviews ({approvedReviews.length})
-              </h3>
-
-              {approvedReviews.length === 0 ? (
-                <div style={{
-                  background: 'white',
-                  padding: '2rem',
-                  borderRadius: '10px',
-                  textAlign: 'center',
-                  color: '#666'
-                }}>
-                  No approved reviews yet.
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gap: '1.5rem' }}>
-                  {approvedReviews.map(review => (
-                    <div key={review.id} style={{
-                      background: 'white',
-                      padding: '1.5rem',
-                      borderRadius: '10px',
-                      border: '2px solid #10b981',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
-                        <div>
-                          <h4 style={{ color: '#1e40af', margin: '0 0 0.5rem 0' }}>
-                            {review.name}
-                          </h4>
-                          <p style={{ margin: '0', color: '#666', fontSize: '0.9rem' }}>
-                            {review.email} • {new Date(review.timestamp).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button
-                            onClick={() => handleDeleteReview(review.id)}
-                            style={{
-                              background: '#ef4444',
-                              color: 'white',
-                              border: 'none',
-                              padding: '0.5rem 1rem',
-                              borderRadius: '5px',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            🗑️ Delete
-                          </button>
-                        </div>
-                      </div>
-                      <div style={{ marginBottom: '0.5rem' }}>
-                        {'⭐'.repeat(review.rating)}
-                      </div>
-                      <p style={{ fontStyle: 'italic', color: '#333' }}>
-                        "{review.comment}"
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Bookings Management Tab */}
-          {activeTab === 'bookings' && (
-            <div>
-              <h2 style={{ color: '#1e40af', marginBottom: '2rem' }}>
-                📅 Bookings Management ({bookings.length})
-              </h2>
-
-              {bookings.length === 0 ? (
-                <div style={{
-                  background: 'white',
-                  padding: '2rem',
-                  borderRadius: '10px',
-                  textAlign: 'center',
-                  color: '#666'
-                }}>
-                  No bookings scheduled yet.
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gap: '1rem' }}>
-                  {bookings.map(booking => (
-                    <div key={booking.id} style={{
-                      background: 'white',
-                      padding: '1.5rem',
-                      borderRadius: '10px',
-                      border: '1px solid #e5e7eb',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
-                        <div>
-                          <h4 style={{ color: '#1e40af', margin: '0 0 0.5rem 0' }}>
-                            {booking.studentName}
-                          </h4>
-                          <p style={{ margin: '0 0 0.25rem 0', color: '#666' }}>
-                            � {booking.email}
-                          </p>
-                          <p style={{ margin: '0 0 0.25rem 0', color: '#666' }}>
-                            📱 {booking.phone || 'Not provided'}
-                          </p>
-                          <p style={{ margin: '0 0 0.25rem 0', color: '#666' }}>
-                            �� {new Date(booking.date).toLocaleDateString()} at {booking.time}
-                          </p>
-                          <p style={{ margin: '0 0 0.25rem 0', color: '#666' }}>
-                            🎯 {booking.licenseCode}
-                          </p>
-                          <p style={{ margin: '0 0 0.25rem 0', color: '#666' }}>
-                            � {booking.branch || 'Not specified'}
-                          </p>
-                          {booking.message && (
-                            <p style={{ margin: '0.5rem 0 0 0', color: '#666', fontStyle: 'italic' }}>
-                              💬 "{booking.message}"
-                            </p>
-                          )}
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{
-                            background: booking.status === 'confirmed' ? '#10b981' : '#fbbf24',
-                            color: 'white',
-                            padding: '0.25rem 0.75rem',
-                            borderRadius: '15px',
-                            fontSize: '0.8rem',
-                            fontWeight: 'bold'
-                          }}>
-                            {booking.status || 'Pending'}
-                          </span>
-                          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.8rem', color: '#666' }}>
-                            Booked: {new Date(booking.createdAt).toLocaleDateString()}
-                          </p>
-                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                            <button
-                              onClick={() => {
-                                // Update booking status to confirmed
-                                update(ref(database, `bookings/${booking.id}`), {
-                                  ...booking,
-                                  status: 'confirmed',
-                                  confirmedAt: new Date().toISOString()
-                                });
-                              }}
-                              style={{
-                                background: '#10b981',
-                                color: 'white',
-                                border: 'none',
-                                padding: '0.5rem 1rem',
-                                borderRadius: '5px',
-                                cursor: 'pointer',
-                                fontSize: '0.8rem'
-                              }}
-                            >
-                              ✓ Confirm
-                            </button>
-                            <button
-                              onClick={() => {
-                                // Update booking status to cancelled
-                                update(ref(database, `bookings/${booking.id}`), {
-                                  ...booking,
-                                  status: 'cancelled',
-                                  cancelledAt: new Date().toISOString()
-                                });
-                              }}
-                              style={{
-                                background: '#ef4444',
-                                color: 'white',
-                                border: 'none',
-                                padding: '0.5rem 1rem',
-                                borderRadius: '5px',
-                                cursor: 'pointer',
-                                fontSize: '0.8rem'
-                              }}
-                            >
-                              ✗ Cancel
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Hall of Fame Management Tab */}
-          {activeTab === 'hallOfFame' && (
-            <div>
-              <h2 style={{ color: '#1e40af', marginBottom: '2rem' }}>
-                🏆 Hall of Fame Management ({hallOfFameSubmissions.length})
-              </h2>
-
-              {hallOfFameSubmissions.length === 0 ? (
-                <div style={{
-                  background: 'white',
-                  padding: '2rem',
-                  borderRadius: '10px',
-                  textAlign: 'center',
-                  color: '#666'
-                }}>
-                  No Hall of Fame submissions yet.
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gap: '1.5rem' }}>
-                  {hallOfFameSubmissions.map(submission => (
-                    <div key={submission.id} style={{
-                      background: 'white',
-                      padding: '1.5rem',
-                      borderRadius: '10px',
-                      border: `2px solid ${submission.status === 'approved' ? '#10b981' : submission.status === 'rejected' ? '#ef4444' : '#fbbf24'}`,
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
-                        <div>
-                          <h4 style={{ color: '#1e40af', margin: '0 0 0.5rem 0' }}>
-                            {submission.userName}
-                          </h4>
-                          <p style={{ margin: '0 0 0.25rem 0', color: '#666', fontSize: '0.9rem' }}>
-                            {submission.userEmail} • {new Date(submission.submittedAt).toLocaleDateString()}
-                          </p>
-                          <p style={{ margin: '0 0 0.25rem 0', color: '#666', fontSize: '0.9rem' }}>
-                            Status: <span style={{
-                              background: submission.status === 'approved' ? '#10b981' : submission.status === 'rejected' ? '#ef4444' : '#fbbf24',
-                              color: 'white',
-                              padding: '0.25rem 0.5rem',
-                              borderRadius: '10px',
-                              fontSize: '0.8rem',
-                              fontWeight: 'bold'
-                            }}>{submission.status}</span>
-                          </p>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          {submission.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => {
-                                  update(ref(database, `hallOfFameSubmissions/${submission.id}`), {
-                                    ...submission,
-                                    status: 'approved',
-                                    approvedAt: new Date().toISOString()
-                                  });
-                                }}
-                                style={{
-                                  background: '#10b981',
-                                  color: 'white',
-                                  border: 'none',
-                                  padding: '0.5rem 1rem',
-                                  borderRadius: '5px',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                ✓ Approve
-                              </button>
-                              <button
-                                onClick={() => {
-                                  update(ref(database, `hallOfFameSubmissions/${submission.id}`), {
-                                    ...submission,
-                                    status: 'rejected',
-                                    rejectedAt: new Date().toISOString()
-                                  });
-                                }}
-                                style={{
-                                  background: '#ef4444',
-                                  color: 'white',
-                                  border: 'none',
-                                  padding: '0.5rem 1rem',
-                                  borderRadius: '5px',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                ✗ Reject
-                              </button>
-                            </>
-                          )}
-                          {submission.status === 'approved' && (
-                            <button
-                              onClick={() => {
-                                update(ref(database, `hallOfFameSubmissions/${submission.id}`), {
-                                  ...submission,
-                                  status: 'pending'
-                                });
-                              }}
-                              style={{
-                                background: '#fbbf24',
-                                color: '#1e40af',
-                                border: 'none',
-                                padding: '0.5rem 1rem',
-                                borderRadius: '5px',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              ↩️ Revert to Pending
-                            </button>
-                          )}
-                          {submission.status === 'rejected' && (
-                            <button
-                              onClick={() => {
-                                update(ref(database, `hallOfFameSubmissions/${submission.id}`), {
-                                  ...submission,
-                                  status: 'pending'
-                                });
-                              }}
-                              style={{
-                                background: '#fbbf24',
-                                color: '#1e40af',
-                                border: 'none',
-                                padding: '0.5rem 1rem',
-                                borderRadius: '5px',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              ↩️ Revert to Pending
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div style={{ marginBottom: '0.5rem' }}>
-                        {submission.image && (
-                          <img
-                            src={submission.image}
-                            alt="Hall of Fame submission"
-                            style={{
-                              maxWidth: '200px',
-                              maxHeight: '150px',
-                              borderRadius: '10px',
-                              border: '3px solid #fbbf24'
-                            }}
-                          />
                         )}
-                      </div>
-                      {submission.description && (
-                        <p style={{ margin: '0', color: '#666', fontStyle: 'italic' }}>
-                          "{submission.description}"
-                        </p>
-                      )}
-                    </div>
+                        <button
+                          onClick={() => handleDeleteReview(review.id)}
+                          style={{
+                            background: '#dc2626',
+                            color: 'white',
+                            border: 'none',
+                            padding: '0.5rem 1rem',
+                            borderRadius: '5px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
                   ))}
-                </div>
-              )}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Bookings Tab */}
+        {activeTab === 'bookings' && (
+          <div style={{
+            background: 'white',
+            padding: '2rem',
+            borderRadius: '12px',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+          }}>
+            <h2 style={{ color: '#1e40af', marginBottom: '1.5rem' }}>📅 Bookings Management</h2>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                marginTop: '1rem'
+              }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e5e7eb' }}>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Name</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Email</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Phone</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Package</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Date & Time</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Status</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bookings.map(booking => (
+                    <tr key={booking.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                      <td style={{ padding: '1rem' }}>{booking.name}</td>
+                      <td style={{ padding: '1rem' }}>{booking.email}</td>
+                      <td style={{ padding: '1rem' }}>{booking.phone}</td>
+                      <td style={{ padding: '1rem' }}>{booking.packageType || booking.package || 'Standard'}</td>
+                      <td style={{ padding: '1rem' }}>
+                        {formatDate(booking.dateTime || booking.date)}
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <span style={{
+                          padding: '0.25rem 0.75rem',
+                          borderRadius: '20px',
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold',
+                          background: '#10b981',
+                          color: 'white'
+                        }}>
+                          {booking.status || 'Confirmed'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <button
+                          onClick={() => handleDeleteBooking(booking.id)}
+                          style={{
+                            background: '#dc2626',
+                            color: 'white',
+                            border: 'none',
+                            padding: '0.5rem 1rem',
+                            borderRadius: '5px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Hall of Fame Tab */}
+        {activeTab === 'hallOfFame' && (
+          <div style={{
+            background: 'white',
+            padding: '2rem',
+            borderRadius: '12px',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+          }}>
+            <h2 style={{ color: '#1e40af', marginBottom: '1.5rem' }}>🏆 Hall of Fame Management</h2>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                marginTop: '1rem'
+              }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e5e7eb' }}>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Name</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Description</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Status</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Date</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#1e40af', fontWeight: 'bold' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {hallOfFame.map(hof => (
+                    <tr key={hof.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                      <td style={{ padding: '1rem' }}>{hof.name}</td>
+                      <td style={{ padding: '1rem' }}>{hof.description}</td>
+                      <td style={{ padding: '1rem' }}>
+                        <span style={{
+                          padding: '0.25rem 0.75rem',
+                          borderRadius: '20px',
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold',
+                          background: hof.status === 'approved' ? '#10b981' : hof.status === 'pending' ? '#f59e0b' : '#dc2626',
+                          color: 'white'
+                        }}>
+                          {hof.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        {formatDate(hof.submittedAt)}
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <button
+                          onClick={() => handleUpdateHallOfFame(hof.id, 'status', hof.status === 'approved' ? 'pending' : 'approved')}
+                          style={{
+                            background: '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            padding: '0.5rem 1rem',
+                            borderRadius: '5px',
+                            cursor: 'pointer',
+                            marginRight: '0.5rem'
+                          }}
+                        >
+                          {hof.status === 'approved' ? 'Unapprove' : 'Approve'}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteHallOfFame(hof.id)}
+                          style={{
+                            background: '#dc2626',
+                            color: 'white',
+                            border: 'none',
+                            padding: '0.5rem 1rem',
+                            borderRadius: '5px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

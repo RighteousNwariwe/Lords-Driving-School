@@ -8,10 +8,11 @@ const Auth = ({ mode, onClose, setUser }) => {
     password: '',
     displayName: '',
     phone: '',
-    profilePicture: ''
+    profilePicture: null
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const fileInputRef = React.useRef(null);
 
   const handleChange = (e) => {
     setFormData({
@@ -22,20 +23,23 @@ const Auth = ({ mode, onClose, setUser }) => {
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
-    if (file) {
+    if (file && file.type.startsWith('image/')) {
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
         setError('Image size should be less than 5MB');
         return;
       }
 
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData({
-          ...formData,
-          profilePicture: reader.result
-        });
+      reader.onload = (event) => {
+        setFormData(prev => ({ ...prev, profilePicture: event.target.result }));
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUploadClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
     }
   };
 
@@ -53,7 +57,7 @@ const Auth = ({ mode, onClose, setUser }) => {
       if (result.user.photoURL) {
         await update(ref(database, `users/${result.user.uid}`), {
           profilePicture: result.user.photoURL,
-          updatedAt: new Date().toISOString()
+          lastUpdated: new Date().toISOString()
         });
       }
 
@@ -73,35 +77,31 @@ const Auth = ({ mode, onClose, setUser }) => {
 
     try {
       if (mode === 'signin') {
-        const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
-        setUser(userCredential.user);
-        onClose();
+        await signInWithEmailAndPassword(auth, formData.email, formData.password);
       } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+        const result = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
 
-        // Update profile with display name
-        if (formData.displayName) {
-          await updateProfile(userCredential.user, {
-            displayName: formData.displayName
-          });
-        }
-
-        // Save additional user data to database
-        const { database } = await import('../firebase');
-        const { ref, push } = await import('firebase/database');
-
-        await push(ref(database, 'users'), {
-          uid: userCredential.user.uid,
-          email: formData.email,
-          displayName: formData.displayName,
-          phone: formData.phone,
-          profilePicture: formData.profilePicture || '',
-          createdAt: new Date().toISOString()
+        // Update profile with display name and profile pictures
+        await updateProfile(result.user, {
+          displayName: formData.displayName
         });
 
-        setUser(userCredential.user);
-        onClose();
+        // Save profile pictures to database
+        const { database } = await import('../firebase');
+        const { ref, update } = await import('firebase/database');
+
+        if (formData.profilePicture) {
+          await update(ref(database, `users/${result.user.uid}`), {
+            displayName: formData.displayName,
+            phone: formData.phone,
+            profilePicture: formData.profilePicture,
+            createdAt: new Date().toISOString()
+          });
+        }
       }
+
+      setUser(auth.currentUser);
+      onClose();
     } catch (error) {
       setError(error.message);
     } finally {
@@ -118,63 +118,46 @@ const Auth = ({ mode, onClose, setUser }) => {
         </div>
 
         {error && (
-          <div className="alert alert-error">
+          <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
           {mode === 'signup' && (
-            <div className="form-group">
-              <label htmlFor="displayName">Full Name</label>
-              <input
-                type="text"
-                id="displayName"
-                name="displayName"
-                value={formData.displayName}
-                onChange={handleChange}
-                required={mode === 'signup'}
-              />
-            </div>
-          )}
+            <>
+              <div className="form-group">
+                <label htmlFor="displayName">Full Name</label>
+                <input
+                  type="text"
+                  id="displayName"
+                  name="displayName"
+                  value={formData.displayName}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
 
-          {mode === 'signup' && (
-            <div className="form-group">
-              <label htmlFor="profilePicture">Profile Picture</label>
-              <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-                {formData.profilePicture ? (
-                  <img
-                    src={formData.profilePicture}
-                    alt="Profile Preview"
-                    style={{
-                      width: '80px',
-                      height: '80px',
-                      borderRadius: '50%',
-                      objectFit: 'cover',
-                      border: '3px solid #fbbf24',
-                      marginBottom: '0.5rem'
-                    }}
-                  />
-                ) : (
-                  <div style={{
-                    width: '80px',
-                    height: '80px',
-                    borderRadius: '50%',
-                    background: '#fbbf24',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 0.5rem auto',
-                    fontSize: '1.5rem',
-                    color: '#1e40af'
-                  }}>
-                    👤
-                  </div>
-                )}
+              <div className="form-group">
+                <label htmlFor="phone">Phone Number</label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                />
+              </div>
+
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#1e40af' }}>
+                  Profile Picture
+                </label>
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleImageUpload}
+                  ref={fileInputRef}
                   style={{
                     display: 'none',
                     id: 'profilePictureUpload'
@@ -182,14 +165,52 @@ const Auth = ({ mode, onClose, setUser }) => {
                 />
                 <button
                   type="button"
-                  onClick={() => document.getElementById('profilePictureUpload').click()}
-                  className="btn btn-secondary"
-                  style={{ fontSize: '0.9rem' }}
+                  onClick={handleUploadClick}
+                  className="btn btn-primary"
+                  style={{
+                    fontSize: '0.9rem',
+                    fontWeight: 'bold',
+                    background: '#3b82f6',
+                    border: '2px solid #3b82f6',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    padding: '0.5rem 1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    marginBottom: '1rem'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = '#2563eb';
+                    e.target.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = '#3b82f6';
+                    e.target.style.transform = 'translateY(0)';
+                  }}
                 >
-                  {formData.profilePicture ? 'Change Photo' : 'Upload Photo'}
+                  📸 {formData.profilePicture ? 'Change Photo' : 'Upload Photo'}
                 </button>
+
+                {formData.profilePicture && (
+                  <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                    <img
+                      src={formData.profilePicture}
+                      alt="Profile preview"
+                      style={{
+                        width: '80px',
+                        height: '80px',
+                        objectFit: 'cover',
+                        borderRadius: '8px',
+                        border: '2px solid #e5e7eb'
+                      }}
+                    />
+                  </div>
+                )}
               </div>
-            </div>
+            </>
           )}
 
           <div className="form-group">
@@ -204,19 +225,6 @@ const Auth = ({ mode, onClose, setUser }) => {
             />
           </div>
 
-          {mode === 'signup' && (
-            <div className="form-group">
-              <label htmlFor="phone">Phone Number</label>
-              <input
-                type="tel"
-                id="phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-              />
-            </div>
-          )}
-
           <div className="form-group">
             <label htmlFor="password">Password</label>
             <input
@@ -226,71 +234,24 @@ const Auth = ({ mode, onClose, setUser }) => {
               value={formData.password}
               onChange={handleChange}
               required
-              minLength={mode === 'signup' ? 6 : undefined}
             />
-            {mode === 'signup' && (
-              <small style={{ color: '#666' }}>Password must be at least 6 characters</small>
-            )}
           </div>
 
           <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%' }}>
             {loading ? <span className="spinner"></span> : (mode === 'signin' ? 'Sign In' : 'Sign Up')}
           </button>
-
-          <div style={{ textAlign: 'center', margin: '1.5rem 0' }}>
-            <span style={{ color: '#666' }}>OR</span>
-          </div>
-
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={handleGoogleSignIn}
-            disabled={loading}
-            style={{
-              width: '100%',
-              backgroundColor: '#4285f4',
-              borderColor: '#4285f4',
-              color: 'white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem'
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24">
-              <path fill="#ffffff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-              <path fill="#ffffff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-              <path fill="#ffffff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-              <path fill="#ffffff" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-            </svg>
-            {loading ? <span className="spinner"></span> : 'Continue with Google'}
-          </button>
         </form>
 
-        <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-          {mode === 'signin' ? (
-            <p>
-              Don't have an account?{' '}
-              <button
-                className="btn btn-secondary"
-                onClick={() => window.showSignUpModal()}
-                style={{ padding: '0.25rem 0.75rem', fontSize: '0.9rem' }}
-              >
-                Sign Up
-              </button>
-            </p>
-          ) : (
-            <p>
-              Already have an account?{' '}
-              <button
-                className="btn btn-secondary"
-                onClick={() => window.showSignInModal()}
-                style={{ padding: '0.25rem 0.75rem', fontSize: '0.9rem' }}
-              >
-                Sign In
-              </button>
-            </p>
-          )}
+        <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            className="btn btn-secondary"
+            disabled={loading}
+            style={{ width: '100%', background: '#4285f4', border: '#4285f4' }}
+          >
+            {loading ? <span className="spinner"></span> : '🔗 Sign in with Google'}
+          </button>
         </div>
       </div>
     </div>

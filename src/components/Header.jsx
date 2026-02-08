@@ -53,8 +53,31 @@ const Header = ({ user, setUser }) => {
                 >
                   👤 Profile
                 </button>
-                <button className="btn btn-secondary" onClick={handleSignOut}>
-                  Sign Out
+                <button
+                  className="btn btn-secondary"
+                  onClick={handleSignOut}
+                  style={{
+                    marginRight: '0.5rem',
+                    padding: '0.5rem 1rem',
+                    fontSize: '0.9rem',
+                    background: '#ef4444',
+                    border: '#ef4444',
+                    color: 'white',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    fontWeight: '500'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = '#dc2626';
+                    e.target.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = '#ef4444';
+                    e.target.style.transform = 'translateY(0)';
+                  }}
+                >
+                  🚪 Sign Out
                 </button>
               </>
             ) : (

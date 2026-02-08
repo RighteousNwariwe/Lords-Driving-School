@@ -11,3 +11,244 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .container {
+    padding: 0 1rem;
+    max-width: 100%;
+  }
+  
+  .header {
+    padding: 1rem 0;
+  }
+  
+  .nav-container {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .nav-links {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+  
+  .auth-buttons {
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+  }
+  
+  .auth-buttons button {
+    width: 100%;
+    margin: 0 !important;
+  }
+  
+  .logo {
+    font-size: 1.2rem;
+    text-align: center;
+  }
+  
+  .section {
+    padding: 2rem 0;
+  }
+  
+  .modal-content {
+    margin: 1rem;
+    max-width: calc(100% - 2rem);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  .form-group {
+    margin-bottom: 1rem;
+  }
+  
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  .btn {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .reviews-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .contact-info {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .contact-card {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .pricing-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .pricing-card {
+    margin-bottom: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 0 0.5rem;
+  }
+  
+  .logo {
+    font-size: 1rem;
+  }
+  
+  .nav-links {
+    font-size: 0.9rem;
+  }
+  
+  .modal-content {
+    margin: 0.5rem;
+    max-width: calc(100% - 1rem);
+  }
+  
+  .btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+  }
+  
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    padding: 0.5rem;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+  }
+  
+  h3 {
+    font-size: 1.2rem;
+  }
+  
+  h4 {
+    font-size: 1.1rem;
+  }
+}
+
+/* Tablet Styles */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .nav-container {
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  
+  .nav-links {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .reviews-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .pricing-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Large Desktop Styles */
+@media (min-width: 1025px) {
+  .container {
+    max-width: 1200px;
+  }
+  
+  .reviews-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .pricing-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Touch-friendly buttons */
+@media (hover: none) and (pointer: coarse) {
+  .btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  .nav-links a {
+    padding: 0.5rem 1rem;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #1a1a1a;
+    color: #ffffff;
+  }
+  
+  .modal-content {
+    background-color: #2d2d2d;
+    color: #ffffff;
+  }
+  
+  .contact-card {
+    background-color: #2d2d2d;
+    color: #ffffff;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .btn {
+    border: 2px solid currentColor;
+  }
+  
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .header,
+  .auth-buttons,
+  .modal,
+  .btn {
+    display: none !important;
+  }
+  
+  .section {
+    page-break-inside: avoid;
+  }
+  
+  .contact-card {
+    break-inside: avoid;
+  }
+}

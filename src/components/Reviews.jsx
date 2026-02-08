@@ -270,10 +270,10 @@ const Reviews = ({ user }) => {
                 <div key={review.id} className="review-card">
                   <div className="review-header">
                     <div className="review-avatar">
-                      {review.profilePicture ? (
+                      {review.userPhoto ? (
                         <img
-                          src={review.profilePicture}
-                          alt={review.name}
+                          src={review.userPhoto}
+                          alt={review.userName || review.name}
                           style={{
                             width: '40px',
                             height: '40px',
@@ -282,11 +282,24 @@ const Reviews = ({ user }) => {
                           }}
                         />
                       ) : (
-                        review.name.charAt(0).toUpperCase()
+                        <div style={{
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '50%',
+                          background: '#dc2626',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontWeight: 'bold',
+                          fontSize: '1rem'
+                        }}>
+                          {(review.userName || review.name || 'U').charAt(0).toUpperCase()}
+                        </div>
                       )}
                     </div>
                     <div>
-                      <strong>{review.name}</strong>
+                      <strong>{review.userName || review.name || 'Anonymous User'}</strong>
                       <div style={{ color: '#666', fontSize: '0.9rem' }}>
                         {new Date(review.timestamp).toLocaleDateString()}
                       </div>
@@ -394,23 +407,6 @@ const Reviews = ({ user }) => {
             </div>
           </div>
         </div>
-
-        {/* Hall of Fame Upload Section */}
-        {user && (
-          <div style={{ maxWidth: '800px', margin: '3rem auto 0' }}>
-            <div style={{ background: 'white', padding: '2rem', borderRadius: '15px', boxShadow: '0 8px 25px rgba(0,0,0,0.1)' }}>
-              <h3 style={{ color: '#1e40af', marginBottom: '1.5rem', textAlign: 'center' }}>
-                🏆 Want to Join Our Hall of Fame?
-              </h3>
-              <p style={{ textAlign: 'center', marginBottom: '2rem', color: '#666' }}>
-                Upload a picture showing you acquiring your learner's license or passing your test.
-                Our admin team will review and approve it for the Hall of Fame!
-              </p>
-
-              <HallOfFameUpload user={user} />
-            </div>
-          </div>
-        )}
       </div>
     </section>
   );

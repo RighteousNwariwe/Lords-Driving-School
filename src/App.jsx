@@ -8,13 +8,13 @@ import Header from './components/Header';
 import Hero from './components/Hero';
 import Pricing from './components/Pricing';
 import Contact from './components/Contact';
+import HallOfFame from './components/HallOfFame';
 import Reviews from './components/Reviews';
-import LordsDrivers from './components/LordsDrivers';
+import SuperAdminDashboard from './components/SuperAdminDashboard';
 import Footer from './components/Footer';
 import Auth from './components/Auth';
 import Booking from './components/Booking';
 import UserProfile from './components/UserProfile';
-import AdminDashboard from './components/AdminDashboard';
 import AIChatbot from './components/AIChatbot';
 
 function App() {
@@ -42,12 +42,27 @@ function App() {
   }, []);
 
   // Global functions for auth modals
-  window.showSignInModal = () => setAuthMode('signin');
+  window.showSignInModal = () => {
+    setAuthMode('signin');
+    setShowBooking(false);
+    setShowProfile(false);
+  };
   window.showSignUpModal = () => setAuthMode('signup');
   window.showBookingModal = () => setShowBooking(true);
   window.showProfileModal = () => setShowProfile(true);
   window.closeProfileModal = () => setShowProfile(false);
-  window.showAdminDashboard = () => setShowAdminDashboard(true);
+  window.closeAllModals = () => {
+    setAuthMode(null);
+    setShowBooking(false);
+    setShowProfile(false);
+    setShowAdminDashboard(false);
+  };
+  window.showAdminDashboard = () => {
+    console.log('Admin dashboard button clicked');
+    console.log('User email:', user?.email);
+    console.log('Is admin:', user?.email === 'lordsdrivingschool@gmail.com');
+    setShowAdminDashboard(true);
+  };
 
   const closeAuthModal = () => setAuthMode(null);
   const closeBookingModal = () => setShowBooking(false);
@@ -123,9 +138,9 @@ function App() {
         </section>
 
         <Pricing />
-        <LordsDrivers />
-        <Contact />
+        <HallOfFame user={user} />
         <Reviews user={user} />
+        <Contact />
       </main>
 
       <Footer />
@@ -155,9 +170,9 @@ function App() {
         />
       )}
 
-      {/* Admin Dashboard Modal */}
+      {/* Super Admin Dashboard Modal */}
       {showAdminDashboard && isAdmin && (
-        <AdminDashboard user={user} onLogout={handleLogout} onClose={closeAdminDashboard} />
+        <SuperAdminDashboard onClose={closeAdminDashboard} />
       )}
     </div>
   );
