@@ -135,19 +135,6 @@ Lords-Driving-School/
    cd ..
    ```
 
-3. **Set up Firebase credentials**
-   - Create a Firebase project at [firebase.google.com](https://firebase.google.com)
-   - Add your Firebase configuration to your environment
-   - Enable Authentication, Firestore, and Realtime Database
-
-4. **Start the development server**
-   ```bash
-   cd lords-driving-school
-   npm run dev
-   ```
-   The application will be available at `http://localhost:5173`
-
----
 
 ## 🏗 Build & Deployment
 
@@ -158,24 +145,6 @@ npm run build
 ```
 
 The optimized production bundle will be created in the `build/` directory.
-
-### Deploy to Firebase Hosting
-
-**Option 1: Using custom deploy script**
-```bash
-npm run deploy
-```
-
-**Option 2: Manual Firebase deployment**
-```bash
-firebase login
-firebase deploy --only hosting
-```
-
-**Deployment Details:**
-- Build output: `lords-driving-school/dist` → Firebase Hosting
-- Live site: https://lords-driving-school.web.app
-- Firebase console: https://console.firebase.google.com/project/lords-driving-school
 
 ---
 
@@ -305,20 +274,7 @@ npm run deploy           # Build and deploy to Firebase Hosting
 
 ---
 
-## 💡 Code Quality Standards
 
-- **ESLint Configuration**: React app recommended rules
-- **Code Style**: Consistent JavaScript formatting
-- **Component Patterns**: Functional components with hooks
-- **State Management**: React hooks (useState, useEffect, useContext)
-
----
-
-## 📝 License
-
-This project is licensed under the **MIT License** - see the LICENSE file for details.
-
----
 
 ## 👨‍💻 Author
 
@@ -328,40 +284,3 @@ This project is licensed under the **MIT License** - see the LICENSE file for de
 
 ---
 
-## 🤝 Contributing
-
-Contributions are welcome! To contribute:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-## 📞 Support & Contact
-
-For questions, suggestions, or issues:
-
-- **Email**: info@lordsdrivingschool.com
-- **Phone**: +123-456-7890
-- **GitHub Issues**: [Report a Bug](https://github.com/RighteousNwariwe/Lords-Driving-School/issues)
-
----
-
-## 📚 Resources
-
-- [React Documentation](https://react.dev)
-- [Vite Documentation](https://vitejs.dev)
-- [Firebase Documentation](https://firebase.google.com/docs)
-- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
-- [React Router Documentation](https://reactrouter.com)
-
----
-
-**⭐ If you find this project helpful, please consider starring it on GitHub!**
-
----
-
-*Last Updated: May 26, 2026*
